@@ -46,6 +46,8 @@ class UserSerializer(serializers.ModelSerializer):
 #        return Snippet(**attrs)
 
 class SnippetSerializer(serializers.ModelSerializer):
+    # To make it more user-friendly, let's use the username instead of the default pk. This is
+    # optional, obviously.
     owner = serializers.Field(source='owner.username')
 
     class Meta:
