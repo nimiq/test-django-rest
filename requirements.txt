@@ -1,3 +1,6 @@
 django
 djangorestframework
 pygments
+
+bpython
+django-extensions
