@@ -12,28 +12,48 @@ from snippets.permissions import IsOwnerOrReadOnly
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework import renderers
+from rest_framework import viewsets
+from rest_framework.decorators import link
 
 
-@api_view(('GET',))
-def api_root(request, format=None):
-    return Response({
-        'users': reverse('user-list', request=request, format=format),
-        'snippets': reverse('snippet-list', request=request, format=format)
-    })
+#-- Root API --------------------------------------------------------------------------------------
+# Not required when using Routers
+#@api_view(('GET',))
+#def api_root(request, format=None):
+#    return Response({
+#        'users': reverse('user-list', request=request, format=format),
+#        'snippets': reverse('snippet-list', request=request, format=format)
+#    })
+#--------------------------------------------------------------------------------------------------
 
 
-class UserList(generics.ListAPIView):
+
+
+#-- Users endpoint --------------------------------------------------------------------------------
+#### Regular views
+#class UserList(generics.ListAPIView):
+#    queryset = User.objects.all()
+#    serializer_class = UserSerializer
+#
+#
+#class UserDetail(generics.RetrieveAPIView):
+#    queryset = User.objects.all()
+#    serializer_class = UserSerializer
+#
+#### ViewSets
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    This viewset automatically provides `list` and `detail` actions.
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
-
-
-class UserDetail(generics.RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+#--------------------------------------------------------------------------------------------------
 
 
 
 
+#-- Snippets endpoint -----------------------------------------------------------------------------
+#### Base class view
 #class SnippetList(APIView):
 #    """
 #    List all snippets, or create a new snippet.
@@ -49,7 +69,8 @@ class UserDetail(generics.RetrieveAPIView):
 #            serializer.save()
 #            return Response(serializer.data, status=status.HTTP_201_CREATED)
 #        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+#
+#### Generic base class view w/ mixins
 #class SnippetList(mixins.ListModelMixin,
 #                  mixins.CreateModelMixin,
 #                  generics.GenericAPIView):
@@ -64,19 +85,20 @@ class UserDetail(generics.RetrieveAPIView):
 #    def post(self, request, *args, **kwargs):
 #        # `create` method provided by `mixins.CreateModelMixin`.
 #        return self.create(request, *args, **kwargs)
+#
+#### Generic class view w/ list and create features
+#class SnippetList(generics.ListCreateAPIView):
+#    queryset = Snippet.objects.all()
+#    serializer_class = SnippetSerializer
+#
+#    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+#
+#    def pre_save(self, obj):
+#        obj.owner = self.request.user
 
-class SnippetList(generics.ListCreateAPIView):
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
-
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-
-    def pre_save(self, obj):
-        obj.owner = self.request.user
 
 
-
-
+#### Base class view
 #class SnippetDetail(APIView):
 #    """
 #    Retrieve, update or delete a snippet instance.
@@ -104,7 +126,8 @@ class SnippetList(generics.ListCreateAPIView):
 #        snippet = self.get_object(pk)
 #        snippet.delete()
 #        return Response(status=status.HTTP_204_NO_CONTENT)
-
+#
+#### Generic base class view w/ mixins
 #class SnippetDetail(mixins.RetrieveModelMixin,
 #                    mixins.UpdateModelMixin,
 #                    mixins.DestroyModelMixin,
@@ -124,29 +147,63 @@ class SnippetList(generics.ListCreateAPIView):
 #    def delete(self, request, *args, **kwargs):
 #        # `destroy` method provided by mixins.DestroyModelMixin.
 #        return self.destroy(request, *args, **kwargs)
+#
+#### Generic class view w/ retrieve, update, destroy features
+#class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
+#    queryset = Snippet.objects.all()
+#    serializer_class = SnippetSerializer
+#
+#    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+#
+#    def pre_save(self, obj):
+#        obj.owner = self.request.user
+#--------------------------------------------------------------------------------------------------
 
-class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
+
+
+
+#-- Snippets Highlights endpoint ---------------------------------------------------------------------------
+#class SnippetHighlight(generics.GenericAPIView):
+#    """
+#    In this case we want to return a property (`highlighted`) of an object instance (a `Snippet`
+#    instance), not an object instance itself. So there is no existing concrete generic view that
+#    we can use, we need to use the base class for representing instances.
+#    """
+#    queryset = Snippet.objects.all()
+#    # We use this specific renderer because we want to return the static HTML code which is stored
+#    # in the `highlighted` attribute of a `Snippet` instance.
+#    renderer_classes = (renderers.StaticHTMLRenderer,)
+#
+#    def get(self, request, *args, **kwargs):
+#        snippet = self.get_object()
+#        return Response(snippet.highlighted)
+#--------------------------------------------------------------------------------------------------
+
+
+
+
+#-- Unique Snippets endpoint w/ ViewSet -----------------------------------------------------------
+class SnippetViewSet(viewsets.ModelViewSet):
+    """
+    This viewset automatically provides `list`, `create`, `retrieve`,
+    `update` and `destroy` actions.
+
+    Additionally we also provide an extra `highlight` action.
+    """
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,
+                          IsOwnerOrReadOnly,)
 
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+    # Additional `highlight` action
+    # @link for http GET
+    # @action for http POST
+    @link(renderer_classes=[renderers.StaticHTMLRenderer])
+    def highlight(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
 
     def pre_save(self, obj):
         obj.owner = self.request.user
+#--------------------------------------------------------------------------------------------------
 
-
-
-class SnippetHighlight(generics.GenericAPIView):
-    """
-    In this case we want to return a property (`highlighted`) of an object instance (a `Snippet`
-    instance), not an object instance itself. So there is no existing concrete generic view that
-    we can use, we need to use the base class for representing instances.
-    """
-    queryset = Snippet.objects.all()
-    # We use this specific renderer because we want to return the static HTML code which is stored
-    # in the `highlighted` attribute of a `Snippet` instance.
-    renderer_classes = (renderers.StaticHTMLRenderer,)
-
-    def get(self, request, *args, **kwargs):
-        snippet = self.get_object()
-        return Response(snippet.highlighted)
