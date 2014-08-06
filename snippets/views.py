@@ -9,6 +9,17 @@ from rest_framework import generics
 from django.contrib.auth.models import User
 from rest_framework import permissions
 from snippets.permissions import IsOwnerOrReadOnly
+from rest_framework.decorators import api_view
+from rest_framework.reverse import reverse
+from rest_framework import renderers
+
+
+@api_view(('GET',))
+def api_root(request, format=None):
+    return Response({
+        'users': reverse('user-list', request=request, format=format),
+        'snippets': reverse('snippet-list', request=request, format=format)
+    })
 
 
 class UserList(generics.ListAPIView):
@@ -122,3 +133,20 @@ class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def pre_save(self, obj):
         obj.owner = self.request.user
+
+
+
+class SnippetHighlight(generics.GenericAPIView):
+    """
+    In this case we want to return a property (`highlighted`) of an object instance (a `Snippet`
+    instance), not an object instance itself. So there is no existing concrete generic view that
+    we can use, we need to use the base class for representing instances.
+    """
+    queryset = Snippet.objects.all()
+    # We use this specific renderer because we want to return the static HTML code which is stored
+    # in the `highlighted` attribute of a `Snippet` instance.
+    renderer_classes = (renderers.StaticHTMLRenderer,)
+
+    def get(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)

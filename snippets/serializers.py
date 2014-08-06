@@ -4,13 +4,15 @@ from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
 from django.contrib.auth.models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
-    # Add a filed to diplsay a list of related snippets.
-    snippets = serializers.PrimaryKeyRelatedField(many=True)
+class UserSerializer(serializers.HyperlinkedModelSerializer):
+    # Add a filed to display a list of related snippets.
+    #snippets = serializers.PrimaryKeyRelatedField(many=True)
+    # Use a hyperlink to the Snippets endpoint.
+    snippets = serializers.HyperlinkedRelatedField(many=True, view_name='snippet-detail')
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'snippets')
+        fields = ('id', 'url', 'username', 'snippets')
 
 
 #class SnippetSerializer(serializers.Serializer):
@@ -45,11 +47,16 @@ class UserSerializer(serializers.ModelSerializer):
 #        # Create new instance
 #        return Snippet(**attrs)
 
-class SnippetSerializer(serializers.ModelSerializer):
+class SnippetSerializer(serializers.HyperlinkedModelSerializer):
     # To make it more user-friendly, let's use the username instead of the default pk. This is
     # optional, obviously.
     owner = serializers.Field(source='owner.username')
+    # Add a highlight field to link to the Highlights endpoint.
+    highlight = serializers.HyperlinkedIdentityField(view_name='snippet-highlight', format='html')
 
     class Meta:
         model = Snippet
-        fields = ('id', 'title', 'code', 'linenos', 'language', 'style', 'owner')
+        # The `id` field is replaced by the `url` field because this is a
+        # `HyperlinkedModelSerializer` sub-class.
+        fields = ('id', 'url', 'highlight', 'owner', 'title', 'code', 'linenos', 'language',
+                  'style')
